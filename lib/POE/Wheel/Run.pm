@@ -160,7 +160,6 @@ sub new {
     $conduit = "pipe";
   }
 
-#  carp "Winsize is deprecated." if exists $params{Winsize};
   my $winsize = delete $params{Winsize};
 
   if ($winsize) {
@@ -169,6 +168,7 @@ sub new {
 
       carp "winsize must be a 4 element arrayref" unless ref($winsize) eq 'ARRAY'
         and scalar @$winsize == 4;
+
   }
 
   my $stdin_event  = delete $params{StdinEvent};
@@ -342,15 +342,14 @@ sub new {
       $stdin_read->set_raw();
 
       if ($winsize) {
-          my $wstruct = pack('vvvv', @$winsize);
-          ioctl($stdin_read, TIOCSWINSZ, $wstruct); 
-      } else {
-          # Set the pty conduit (slave side) window size to our window
-          # size.  APITUE 19.4 and 19.5.
-
-          eval { $stdin_read->clone_winsize_from(\*STDIN) };
+        ioctl($stdin_read, TIOCSWINSZ, pack('vvvv', @$winsize));
       }
-          
+      else {
+        # Set the pty conduit (slave side) window size to our window
+        # size.  APITUE 19.4 and 19.5.
+
+        eval { $stdin_read->clone_winsize_from(\*STDIN) } if -T STDIN;
+      }
     }
     else {
       # TODO - Can this be block eval?  Or a do{} block?
@@ -1489,23 +1488,10 @@ TODO - Example.
 
 =head4 Winsize
 
-WARNING! This has been deprecated. WARNING!
-
-The reason for the deprecation is that the original code was crufty
-and unmaintained. It caused more problems than it helped. In the
-mists of time, the old code was silently removed. Actually, it was
-replaced with IO::Pty::clone_winsize_from(\*FH) which was more saner.
-Alas, the docs weren't updated and users were led to believe that
-this would do something. Now, POE::Wheel::Run will issue a warning
-if it sees this param. If you want the old behavior back, please help
-us fix it! Patches welcome :)
-
-WARNING! This has been deprecated. WARNING!
-
 Winsize sets the child process' terminal size.  Its value should be an
-arrayref with two or four elements.  The first two elements must be
-the number of lines and columns for the child's terminal window,
-respectively.  The optional pair of elements describe the terminal's X
+arrayref with four elements.  The first two elements must be the
+number of lines and columns for the child's terminal window,
+respectively.  The second pair of elements describe the terminal's X
 and Y dimensions in pixels:
 
   $_[HEAP]{child} = POE::Wheel::Run->new(
